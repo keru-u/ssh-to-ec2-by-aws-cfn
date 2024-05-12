@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09' # テンプレートバージョン情報
+Description: Hands-on VPC-Endpoint-ssm template # テンプレートの説明文
+Parameters:
+  NetworkStackName: # クロススタック参照元のスタック名を入力
+    Type: String
+    Default: Hands-on-Network
+
+  EnvironmentName:
+    Type: String
+    Default: Hands-on
+Resources:
+########## SG ##########
+  VPCEndpointSSMSecurityGroup: # SSM Endpoint用のSGを作成
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${NetworkStackName}-VPC"
+      GroupName: !Sub ${EnvironmentName}-sg-vpc-endpoint-ssm
+      GroupDescription: Security Group for VPC Endpoint for ssm
+      SecurityGroupIngress:
+        - SourceSecurityGroupId:
+            Fn::ImportValue:
+              !Sub "${NetworkStackName}-NoIngressSecurityGroup"
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+########## Endpoint ##########
+  EndpointSSM: # SSM Endpointを作成
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref VPCEndpointSSMSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub "${NetworkStackName}-PrivateSubnet"
+      VpcEndpointType: Interface
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${NetworkStackName}-VPC"
+
+  EndpointSSMMessages: # SSMMessages Endpointを作成
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref VPCEndpointSSMSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub "${NetworkStackName}-PrivateSubnet"
+      VpcEndpointType: Interface
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${NetworkStackName}-VPC"
+
+  EndpointEC2Messages: # EC2Messages Endpointを作成
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !Ref VPCEndpointSSMSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub "${NetworkStackName}-PrivateSubnet"
+      VpcEndpointType: Interface
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${NetworkStackName}-VPC"

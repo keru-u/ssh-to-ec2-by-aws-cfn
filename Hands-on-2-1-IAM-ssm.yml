@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: '2010-09-09' # テンプレートバージョン情報
+Description: Hands-on IAM-ssm template # テンプレートの説明文
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: Hands-on
+Resources:
+########## IAM ##########
+  EC2IAMRole: # IAM Role(SSMのみ許可)を作成
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-SSM-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+                - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2InstanceProfile: # InstanceProfileを作成
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EC2IAMRole
+      InstanceProfileName: !Sub ${EnvironmentName}-EC2InstanceProfile

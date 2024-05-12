@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: '2010-09-09' # テンプレートバージョン情報
+Description:  Hands-on Network template # テンプレートの説明文
+Metadata:
+  AWS::CloudFormation::Interface: # Parametersセクションの表示順序を定義
+    ParameterGroups:
+      - 
+        Label1:
+          default: General Configuration
+        Parameters:
+          - EnvironmentName
+      - 
+        Label2:
+          default: Network Configuration
+        Parameters:
+          - VpcCIDR
+          - PublicSubnetCIDR
+          - PrivateSubnetCIDR
+Parameters: # スタック作成または更新時にカスタム値を入力
+  EnvironmentName:
+    Type: String
+    Default: Hands-on
+
+  VpcCIDR:
+    Type: String
+    Default: 10.0.0.0/16
+
+  PublicSubnetCIDR:
+    Type: String
+    Default: 10.0.100.0/24
+
+  PrivateSubnetCIDR:
+    Type: String
+    Default: 10.0.200.0/24
+
+Resources: # 作成するリソースとパラメータを定義
+########## VPC ##########
+  VPC: # VPCを作成
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-vpc
+
+########## IGW ##########
+  InternetGateway: # IGWを作成
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-igw
+
+  InternetGatewayAttachment: # IGWをVPCにアタッチ
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+########## Subnet ##########
+  PublicSubnet: # PublicSubnetを作成
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-public1-${AWS::Region}
+
+  PrivateSubnet: # PrivateSubnetを作成
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnetCIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-private1-${AWS::Region}
+
+########## RouteTable ##########
+  PublicRouteTable: # PablicRouteTableを作成
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-rtb-public
+
+  DefaultPublicRoute: # IGWを関連付け
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation: # PablicSubnetを関連付け
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  PrivateRouteTable: # PrivateRouteTableを作成
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-rtb-private1
+
+  PrivateSubnetRouteTableAssociation: # PrivateSubnetを関連付け
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet
+
+########## SG ##########
+  NoIngressSecurityGroup: # SG(アウトバウンド接続のみ許可)を作成
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${EnvironmentName}-sg-no-ingress
+      GroupDescription: "Security group with no ingress rule"
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-sg-no-ingress
+Outputs: # クロススタックで参照する値をExportする
+  VPC:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${AWS::StackName}-VPC
+
+  PublicSubnet:
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet
+
+  PrivateSubnet:
+    Value: !Ref PrivateSubnet
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnet
+
+  PrivateRouteTable:
+    Value: !Ref PrivateRouteTable
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateRouteTable
+
+  NoIngressSecurityGroup:
+    Value: !Ref NoIngressSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-NoIngressSecurityGroup

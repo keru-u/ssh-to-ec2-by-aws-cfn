@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09' # テンプレートバージョン情報
+Description: Hands-on VPC-Endpoint-EIC template # テンプレートの説明文
+Parameters:
+  NetworkStackName: # クロススタック参照元のスタック名を入力
+    Type: String
+    Default: Hands-on-Network
+
+  EnvironmentName:
+    Type: String
+    Default: Hands-on
+Resources:
+########## SG ##########
+  EICEndpointSecurityGroup: # EIC Endpoint用のSGを作成
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${NetworkStackName}-VPC"
+      GroupName: !Sub ${EnvironmentName}-sg-eic-endpoint
+      GroupDescription: Security Group for EIC Endpoint
+
+  EICEndpointToEC2SecurityGroup: # EIC EndpointからのSSH接続を許可するSGを作成
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${NetworkStackName}-VPC"
+      GroupName: !Sub ${EnvironmentName}-sg-EC2-from-EICEndpoint
+      GroupDescription: "SecurityGroup for SSH to EC2 from EIC Endpoint"
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref EICEndpointSecurityGroup
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-sg-EC2-from-EICEndpoint
+
+########## Endpoint ##########
+  EICEndpoint: # EIC Endpointを作成
+    Type: AWS::EC2::InstanceConnectEndpoint
+    Properties:
+      SecurityGroupIds:
+        - !Ref EICEndpointSecurityGroup
+      SubnetId:
+        Fn::ImportValue:
+          !Sub "${NetworkStackName}-PrivateSubnet"

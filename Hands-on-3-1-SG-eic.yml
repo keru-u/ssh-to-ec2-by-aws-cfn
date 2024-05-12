@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09' # テンプレートバージョン情報
+Description: Hands-on SG-for-EC2-Instance-Connect template # テンプレートの説明文
+Metadata:
+  AWS::CloudFormation::Interface: # Parametersセクションの表示順序を定義
+    ParameterGroups:
+      - 
+        Label1:
+          default: General Configuration
+        Parameters:
+          - NetworkStackName
+          - EnvironmentName
+      - 
+        Label2:
+          default: SG Configuration
+        Parameters:
+          - EICGlobalIp
+Parameters:
+  NetworkStackName: # クロススタック参照元のスタック名を入力
+    Type: String
+    Default: Hands-on-Network
+
+  EnvironmentName:
+    Type: String
+    Default: Hands-on
+
+  EICGlobalIp: # 利用するリージョンのEICが使用するグローバルIPアドレスを入力
+    Type: String
+    Default: 3.112.23.0/29 # 東京リージョンのEICが使用するグローバルIPアドレス
+Resources:
+  EICToEC2SecurityGroup: # EICからのSSH接続を許可するSGを作成
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${NetworkStackName}-VPC"
+      GroupName: !Sub ${EnvironmentName}-sg-EC2-from-EIC
+      GroupDescription: "SecurityGroup for SSH to EC2 from EIC"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref EICGlobalIp
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-sg-EC2-from-EIC
